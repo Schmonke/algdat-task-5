@@ -1,4 +1,4 @@
-build-texthastable:
+build-texthashtable:
 	gcc texthashtable.c -o texthashtable
 
 build-hashperformance:
