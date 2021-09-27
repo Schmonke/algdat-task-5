@@ -50,14 +50,13 @@ int run_with_file(FILE *fp)
     return 0;
 }
 
-int handle_file(char const *argv[])
+int handle_file(char *file_path)
 {
-    char *file_path = argv[1];
     FILE *file = fopen(file_path, "r");
 
     if(file == NULL) 
     {
-        perror("Unable to open file.\n");
+        perror("Unable to open file.");
         return 1;
     }
     return run_with_file(file);
@@ -68,7 +67,7 @@ void print_help()
     printf(
         "You must specify which file to read from as an argument to the program.\n"
         "Usage: texthashtable <file_name>\n"
-        "E.g. ./texthashtable ~/main.c\n"
+        "E.g. ./texthashtable ~/navn.txt\n"
     );
 }
 
