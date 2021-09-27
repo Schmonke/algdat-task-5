@@ -32,25 +32,26 @@ int hashfunc(int key, int tablesize)
 
 int run_with_file(FILE *fp)
 {
-    int const buffer_size = 255;
-    char buff[buffer_size];
-    int text_len = 1;
-    int m = 42069;
-    char table[m];
+    char *line = NULL;
+    size_t len = 0; //Will be update by getline
+    int m = 42069; 
+    char *table[m];
     int n, a;
 
-    while(text_len >= 0) 
+    while(getline(&line, &len, fp) != -1)
     {
-        text_len = getline(buff[0], buffer_size, fp);
-        n = convert_text_to_int(buff[0]);
+        n = convert_text_to_int(line);
         a = hashfunc(n, m);
-        table[a] = buff[0];
+        table[a] = line;
+        //fputs(table[a], stdout); //for debugging.
     }
+
+    free(line);
 
     return 0;
 }
 
-int handle_file(char *file_path)
+int handle_file(const char *file_path)
 {
     FILE *file = fopen(file_path, "r");
 
