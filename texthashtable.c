@@ -98,8 +98,27 @@ hash_table *hash_table_create(size_t capacity)
  */
 void hash_table_free(hash_table *table)
 {
+    // Free all of the buckets.
+    for (size_t i = 0; i <= table->capacity; i++)
+    {
+        hash_table_entry *entry = table->buckets[i];
+        while (entry != NULL)
+        {
+            hash_table_entry *next = entry->next;
+            free(entry);
+            entry = next;
+        }
+    }
+    // Free the bucket array.
     free(table->buckets);
     free(table);
+}
+
+hash_table_entry **hash_table_find_bucket(hash_table *table, void* key, size_t key_size)
+{
+    unsigned int hashed_key = hash(key, key_size);
+    size_t index = hashed_key % table->capacity;
+    return &table->buckets[index];
 }
 
 /**
@@ -114,9 +133,7 @@ void hash_table_add(hash_table *table, void *key, size_t key_size, void *value)
     new_entry->value = value;
 
     // Find target index.
-    unsigned int hashed_key = hash(key, key_size);
-    size_t index = hashed_key % table->capacity;
-    hash_table_entry **entry = &table->buckets[index];
+    hash_table_entry **entry = hash_table_find_bucket(table, key, key_size);
     hash_table_entry **first_entry = entry;
 
     // Find first empty entry.
@@ -144,9 +161,7 @@ void hash_table_add(hash_table *table, void *key, size_t key_size, void *value)
 bool hash_table_lookup(hash_table *table, void *key, size_t key_size, void **value)
 {
     // Find target index.
-    unsigned int hashed_key = hash(key, key_size);
-    size_t index = hashed_key % table->capacity;
-    hash_table_entry *entry = table->buckets[index];
+    hash_table_entry *entry = *hash_table_find_bucket(table, key, key_size);
     hash_table_entry *first_entry = entry;
 
     // Multiple keys can have same hash!
@@ -175,7 +190,7 @@ bool hash_table_lookup(hash_table *table, void *key, size_t key_size, void **val
 }
 
 /**
- * Gets the number of entries in the hash table.
+ * Gets the number of entries in the hash table. 
  */
 size_t hash_table_entries(hash_table *table)
 {
