@@ -139,9 +139,9 @@ int findpos(int k, int m, int *ht[m], int (*probefunc)(int, int))
 
 hash_table *hash_table_create(size_t min_capacity)
 {
-    size_t capacity = gpo2stv(min_capacity);
     hash_table *table = calloc(1, sizeof(hash_table));
-    table->values = calloc(capacity, sizeof(hash_table_entry));
+    table->capacity = gpo2stv(min_capacity);
+    table->values = calloc(table->capacity, sizeof(hash_table_entry));
     return table;
 }
 
@@ -159,10 +159,18 @@ void hash_table_free(hash_table *table)
     free(table);
 }
 
-void hash_table_add(hash_table *table, int value)
-{
-    hash_table_entry *entry = hash_table_entry_create(true, value);
-}
+// void hash_table_add(hash_table *table, int value)
+// {
+//     hash_table_entry *entry = hash_table_entry_create(true, value);
+
+//     int j = probefunc(value, table->capacity);
+//         if (!table->values[j])
+//         {
+//             table->values[j] = *entry;
+//             return j;
+//         }
+//     return -1; //full
+// }
 
 void filltable(hash_table *table, int * array, size_t tablesize, probe_func probe_enum)
 {
@@ -182,8 +190,7 @@ void filltable(hash_table *table, int * array, size_t tablesize, probe_func prob
         default:
             return;
     }
-
-    for (int i = 0; i < tablesize; i++)
+    for(int i = 0; i < tablesize; i++)
     {
         add_entry(array[i], tablesize, table, (*fptr)(i, tablesize));
     }
@@ -203,6 +210,7 @@ int main(int argc, char *argv[])
     hash_table *tablelin = hash_table_create(randbound);
     hash_table *tablequad = hash_table_create(randbound);
     hash_table *tabledouble = hash_table_create(randbound);
+
 
     filltable(tablelin, randarray, tablelin->capacity, LIN);
     filltable(tablequad, randarray, tablelin->capacity, QUAD);
