@@ -4,6 +4,26 @@
 #include <limits.h>
 #include <stdarg.h>
 
+typedef struct {
+    bool exists;
+    int value;
+} hash_table_entry;
+
+typedef struct {
+    size_t capacity;
+    size_t entries;
+    size_t collisions;
+    hash_table_entry *values;
+} hash_table;
+
+typedef enum {
+    LIN,
+    QUAD,
+    DOUBLEH
+} probe_func;
+
+//typedef int probe_func(int key, int size);
+
 void swap(int *a, int*b)
 {    
     int s = *a;
@@ -25,6 +45,22 @@ int *create_random_unique_array(size_t size)
     return array;
 }
 
+size_t gpo2stv(size_t value)
+{
+    const int bits = sizeof(size_t) * CHAR_BIT;
+    if (value & 1 << (bits - 1))
+    {
+        return 0;
+    }
+    for (int i = bits - 2; i > 0; i--)
+    {
+        if (value & 1 << i)
+        {
+            return 1 << i + 1;
+        }
+    }
+    return 1;
+}
 
 //Hashfunc 1
 unsigned int hash1(int key, int m)
@@ -47,32 +83,34 @@ int hash2(int key, int m)
     return result;
 }
 
-int probe_lin(int h, int i, int m)
+int probe_lin(int i, int m)
 {
-    return  (h + i) % m;
+    return (hash1(i, m) + i) % m;
 }
 
 //Uses prime numbers as constants to minimize chance of common denominator.
-int probe_quad(int h, int i, int m)
+int probe_quad(int i, int m)
 {
+    const int h = hash1(i, m);
     const int c1 = 1147419379;
     const int c2 = 547419503;
     return (h + c1*i + c2*i*i) % m;
 }
 
 // h2 and m must be relative prime
-int probe_doublehash(int h1, int h2, int i, int m)
+int probe_doublehash(int i, int m)
 {
+    const int h1 = hash1(i, m);
+    const int h2 = hash2(i, m);
     return (h1 + i*h2) % m;
 }
 
 //Open addressing p.161
-int add_entry(int *k, int m, int *ht[m])
+int add_entry(int *k, int m, int *ht[m], int (*probefunc)(int, int))
 {
-    int h = hashfunc(*k, m);
     for (int i = 0; i < m; i++)
     {
-        int j = probe_lin(h,i,m);
+        int j = probefunc(i,m);
         if (!ht[j])
         {
             ht[j] = k;
@@ -82,18 +120,22 @@ int add_entry(int *k, int m, int *ht[m])
     return -1; //full
 }
 
+int findpos(int k, int m, int *ht[m], int (*probefunc)(int, int))
+{
+    for (int i = 0; i<m; i++)
+    {
+        int j = probefunc(i, m);
+        if(!ht[j]) return -1;
+        if(*ht[j] == k) return j;
+    }
+    return -1; //Does not exist
+}
 
-typedef struct {
-    bool exists;
-    int value;
-} hash_table_entry;
-
-typedef struct {
-    size_t capacity;
-    size_t entries;
-    size_t collisions;
-    hash_table_entry *values;
-} hash_table;
+// probe_func *probe_array[3] = {
+//     probe_lin,
+//     probe_quad,
+//     probe_doublehash
+// }
 
 hash_table *hash_table_create(size_t min_capacity)
 {
@@ -111,7 +153,6 @@ hash_table_entry *hash_table_entry_create(bool b, int val)
     return entry;
 }
 
-
 void hash_table_free(hash_table *table)
 {
     free(table->values);
@@ -121,46 +162,30 @@ void hash_table_free(hash_table *table)
 void hash_table_add(hash_table *table, int value)
 {
     hash_table_entry *entry = hash_table_entry_create(true, value);
-
-    table->values[index] = entry;
 }
 
-
-
-int findpos(int k, int m, int *ht[m])
+void filltable(hash_table *table, int * array, size_t tablesize, probe_func probe_enum)
 {
-    int h = hashfunc(k,m);
-    for (int i = 0; i<m; i++)
-    {
-        int j = probe_lin(h,i,m);
-        if(!ht[j]) return -1;
-        if(*ht[j] == k) return j;
-    }
-    return -1; //Does not exist
-}
+    int (*fptr)(int, int);
 
-size_t gpo2stv(size_t value)
-{
-    const int bits = sizeof(size_t) * CHAR_BIT;
-    if (value & 1 << (bits - 1))
+    switch (probe_enum)
     {
-        return 0;
+        case LIN:
+            fptr = &probe_lin;
+            break;
+        case QUAD:
+            fptr = &probe_quad;
+            break;
+        case DOUBLEH:
+            fptr = &probe_doublehash;
+            break;
+        default:
+            return;
     }
-    for (int i = bits - 2; i > 0; i--)
-    {
-        if (value & 1 << i)
-        {
-            return 1 << i + 1;
-        }
-    }
-    return 1;
-}
 
-void monke(hash_table *table, int * array, size_t arraysize, int (*f)(int x, ...))
-{
-    for (int i = 0; i < arraysize; i++)
+    for (int i = 0; i < tablesize; i++)
     {
-        hash_table_add_lin();
+        add_entry(array[i], tablesize, table, (*fptr)(i, tablesize));
     }
 }
 
@@ -179,7 +204,16 @@ int main(int argc, char *argv[])
     hash_table *tablequad = hash_table_create(randbound);
     hash_table *tabledouble = hash_table_create(randbound);
 
-    
+    filltable(tablelin, randarray, tablelin->capacity, LIN);
+    filltable(tablequad, randarray, tablelin->capacity, QUAD);
+    filltable(tabledouble, randarray, tablelin->capacity, DOUBLEH);
+
+
+
+
+    hash_table_free(tablelin);
+    hash_table_free(tablequad);
+    hash_table_free(tabledouble);
     
     return 0;
 }
