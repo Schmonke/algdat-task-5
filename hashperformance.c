@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <limits.h>
+#include <stdarg.h>
 
 void swap(int *a, int*b)
 {    
@@ -30,21 +32,6 @@ unsigned int hash1(int key, int m)
     return key % m;
 }
 
-
-int probe_lin(int h, int i, int m)
-{
-    return  (h + i) % m;
-}
-
-//Uses prime numbers as constants to minimize chance of common denominator.
-int probe_quad(int h, int i, int m)
-{
-    const int c1 = 1147419379;
-    const int c2 = 547419503;
-    return (h + c1*i + c2*i*i) % m;
-}
-
-
 //Hashfunc 2
 int hash2(int key, int m)
 {
@@ -60,6 +47,19 @@ int hash2(int key, int m)
     return result;
 }
 
+int probe_lin(int h, int i, int m)
+{
+    return  (h + i) % m;
+}
+
+//Uses prime numbers as constants to minimize chance of common denominator.
+int probe_quad(int h, int i, int m)
+{
+    const int c1 = 1147419379;
+    const int c2 = 547419503;
+    return (h + c1*i + c2*i*i) % m;
+}
+
 // h2 and m must be relative prime
 int probe_doublehash(int h1, int h2, int i, int m)
 {
@@ -67,7 +67,7 @@ int probe_doublehash(int h1, int h2, int i, int m)
 }
 
 //Open addressing p.161
-int add_entry (int *k, int m, int *ht[m])
+int add_entry(int *k, int m, int *ht[m])
 {
     int h = hashfunc(*k, m);
     for (int i = 0; i < m; i++)
@@ -95,8 +95,9 @@ typedef struct {
     hash_table_entry *values;
 } hash_table;
 
-hash_table *hash_table_create(size_t capacity)
+hash_table *hash_table_create(size_t min_capacity)
 {
+    size_t capacity = gpo2stv(min_capacity);
     hash_table *table = calloc(1, sizeof(hash_table));
     table->values = calloc(capacity, sizeof(hash_table_entry));
     return table;
@@ -136,4 +137,49 @@ int findpos(int k, int m, int *ht[m])
         if(*ht[j] == k) return j;
     }
     return -1; //Does not exist
+}
+
+size_t gpo2stv(size_t value)
+{
+    const int bits = sizeof(size_t) * CHAR_BIT;
+    if (value & 1 << (bits - 1))
+    {
+        return 0;
+    }
+    for (int i = bits - 2; i > 0; i--)
+    {
+        if (value & 1 << i)
+        {
+            return 1 << i + 1;
+        }
+    }
+    return 1;
+}
+
+void monke(hash_table *table, int * array, size_t arraysize, int (*f)(int x, ...))
+{
+    for (int i = 0; i < arraysize; i++)
+    {
+        hash_table_add_lin();
+    }
+}
+
+int main(int argc, char *argv[]) 
+{
+    int randbound = 10000000;
+
+    if(argc > 1) //User can specify capaicity
+    {
+        randbound = atoi(argv[1]);
+    }
+
+    int *randarray = create_random_unique_array(randbound);
+
+    hash_table *tablelin = hash_table_create(randbound);
+    hash_table *tablequad = hash_table_create(randbound);
+    hash_table *tabledouble = hash_table_create(randbound);
+
+    
+    
+    return 0;
 }
