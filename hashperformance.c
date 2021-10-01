@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <time.h>
 
 typedef struct
 {
@@ -10,7 +11,7 @@ typedef struct
     int value;
 } hash_table_entry;
 
-typedef size_t probe_func(int key, size_t hash_table_capacity);
+typedef size_t probe_func(int a, int b, int key, size_t hash_table_capacity);
 
 typedef struct
 {
@@ -22,6 +23,18 @@ typedef struct
     probe_func *probe;
 } hash_table;
 
+/**
+ * Left-rotates the value by the specified amount of bits.
+ * This can be seen as a left shift that carries the bits over to the right side.
+ * 
+ * E.g. lrot(0b010001, 1) would return 0b100010 if ints were 6 bits.
+ */
+size_t lrot(size_t value, size_t bits)
+{
+    return (value << bits) | (value >> (sizeof(value) * CHAR_BIT) - bits);
+}
+
+
 void swap(int *a, int *b)
 {
     int s = *a;
@@ -29,16 +42,17 @@ void swap(int *a, int *b)
     *b = s;
 }
 
-int *create_random_unique_array(size_t size)
+int *create_random_unique_array(size_t length)
 {
-    int *array = calloc(size, sizeof(int));
-    for (size_t i = 0; i < size; i++)
+    int *array = calloc(length, sizeof(int));
+    int mult = (rand() % (length / 2)) + (length / 2);
+    for (size_t i = 0; i < length; i++)
     {
-        array[i] = i;
+        array[i] = i*mult;
     }
-    for (size_t i = 0; i < size; i++)
+    for (size_t i = 0; i < length; i++)
     {
-        array[i] = array[rand() % size];
+        swap(&array[i], &array[rand() % length]);
     }
     return array;
 }
@@ -67,57 +81,57 @@ unsigned int hash1(int key, int m)
 }
 
 //Hashfunc 2
-int hash2(int key, int m)
+unsigned int hash2(int key, int m)
 {
-    int result = -1;
-    if (m != 0 && m & (m - 1) == 0) // m is power of two.
-    {
-        result = (2 * abs(key) + 1) % m;
-    }
-    else
-    {
-        result = key % (m - 1) + 1; // otherwise m is a prime.
-    }
-    return result;
+    return (2 * abs(key) + 1) % m;
 }
 
-int probe_linear(int i, int m)
+size_t probe_linear(int h, int _, int i, size_t m)
 {
-    return (hash1(i, m) + i) % m;
+    return (h + i) % m;
 }
 
 //Uses prime numbers as constants to minimize chance of common denominator.
-int probe_quadratic(int i, int m)
+size_t probe_quadratic(int h, int _, int i, size_t m)
 {
-    const int h = hash1(i, m);
-    const int c1 = 1147419379;
-    const int c2 = 547419503;
+    //printf("QUADPROBE: %d\n", i);
+    const unsigned long long c1 = 211;
+    const unsigned long long c2 = 857;
     return (h + c1 * i + c2 * i * i) % m;
 }
 
 // h2 and m must be relative prime
-int probe_doublehash(int i, int m)
+size_t probe_doublehash(int h1, int h2, int i, size_t m)
 {
-    const int h1 = hash1(i, m);
-    const int h2 = hash2(i, m);
     return (h1 + i * h2) % m;
 }
 
-//Open addressing p.161
-int add_entry(int *k, int m, int *ht[m], int (*probefunc)(int, int))
+int hash_table_add(hash_table *table, int v) 
 {
-    int h = hash1(k, m);
-    for (int i = 0; i < m; i++)
-    {
+    const size_t capacity = table->capacity;
+    const int h1 = hash1(v, capacity);
+    const int h2 = hash2(v, capacity);
+    int colls = 0;
 
-        int j = probefunc(i, m);
-        if (!ht[j])
+    for (int i = 0; i < capacity; i++)
+    {
+        int j = table->probe(h1, h2, i, capacity);
+        hash_table_entry *value = &table->values[j];
+        if (!value->exists)
         {
-            ht[j] = k;
-            return j;
+            value->exists = true;
+            value->value = v;
+            break;
         }
+        colls++;
     }
-    return -1; //full
+    
+    if (colls == capacity)
+    {
+        //printf("TABLE FULL!\n");
+    }
+
+    return colls;
 }
 
 int findpos(int k, int m, int *ht[m], int (*probefunc)(int, int))
@@ -156,29 +170,32 @@ void hash_table_free(hash_table *table)
     free(table);
 }
 
-void hash_table_add(hash_table *table, int value)
+int hash_table_add_all(hash_table *table, int *values, size_t values_length)
 {
-    hash_table_entry *entry = hash_table_entry_create(true, value);
-
-    int j = probefunc(value, table->capacity);
-    if (!table->values[j])
-    {
-        table->values[j] = *entry;
-        return j;
-    }
-    return -1; //full
-}
-
-void hash_table_add_all(hash_table *table, int *values, size_t values_length)
-{
+    int col = 0;
     for (size_t i = 0; i < values_length; i++)
     {
-        hash_table_add(table, values[i]);
+        col += hash_table_add(table, values[i]);
     }
+    return col;
 }
 
 int main(int argc, char *argv[])
 {
+    const struct 
+    {
+        const char *name;
+        probe_func *probe;
+    } probe_types[] = {
+        { "linear", &probe_linear },
+        { "quadratic", &probe_quadratic },
+        { "double-hash", &probe_doublehash }
+    };
+    const int probe_types_length = sizeof(probe_types)/sizeof(probe_types[0]);
+    
+    const float fill_ratios[] = { 0.5, 0.8, 0.9, 0.99, 1.0 };
+    const int fill_ratios_length = sizeof(fill_ratios)/sizeof(fill_ratios[0]);
+
     int table_bound = 10000000;
 
     if (argc > 1) //User can specify capaicity
@@ -186,19 +203,28 @@ int main(int argc, char *argv[])
         table_bound = atoi(argv[1]);
     }
 
+    srand(time(NULL));
+
+    printf("Generating %d unique numbers...\n\n", table_bound);
     int *rand_array = create_random_unique_array(table_bound);
 
-    hash_table *table_lin = hash_table_create(table_bound);
-    hash_table *table_quad = hash_table_create(table_bound);
-    hash_table *table_double = hash_table_create(table_bound);
-
-    hash_table_add_all(table_lin, rand_array, table_lin->capacity, LINEAR);
-    hash_table_add_all(table_quad, rand_array, table_lin->capacity, QUADRATIC);
-    hash_table_add_all(table_double, rand_array, table_lin->capacity, DOUBLE_HASH);
-
-    hash_table_free(table_lin);
-    hash_table_free(table_quad);
-    hash_table_free(table_double);
+    for (int i = 0; i < probe_types_length; i++)
+    {
+        for (int j = 0; j < fill_ratios_length; j++)
+        {
+            float fill_ratio = fill_ratios[j];
+            printf("Creating table for %s\n", probe_types[i].name);
+            hash_table *table = hash_table_create(table_bound, probe_types[i].probe);
+            printf("Filling table (%02.0f%%) ...\n", fill_ratio*100);
+            time_t start = time(NULL);
+            int col = hash_table_add_all(table, rand_array, table_bound * fill_ratio);
+            time_t end = time(NULL);
+            printf("Time       : %lds\n", end - start);
+            printf("Collisions : %d\n", col);
+            printf("Freeing table...\n\n");
+            hash_table_free(table);
+        }
+    }
 
     return 0;
 }
