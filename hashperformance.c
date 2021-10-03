@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <time.h>
+#include <math.h>
 
 typedef struct
 {
@@ -75,16 +76,28 @@ size_t power_of_two_round(size_t value)
     return 1;
 }
 
+//Calculate loadfactor
+float get_loadfactor(hash_table *table)
+{
+    return ((float) table->entries/ (float) table->capacity)*100;
+}
+
 //Hashfunc 1
 unsigned int hash1(int key, int m)
 {
-    return key % m;
+    const int n = 16;
+    const unsigned long long A = (unsigned long long)(0.5*m*(sqrt(5)-1));
+    return key * A >> (32 - n); //x is from 2^x
 }
 
 //Hashfunc 2
 unsigned int hash2(int key, int m)
-{
-    return (2 * abs(key) + 1) % m;
+{   
+    /*const int a = 1093847;
+    const int n = 16;
+    return (key*a>>(31 - n)) & (m-1);*/
+    const float n = 0.5;
+    return floor (m * ( key/2)) + 1;
 }
 
 size_t probe_linear(int h, int _, int i, size_t m)
@@ -123,6 +136,7 @@ int hash_table_add(hash_table *table, int v)
         {
             value->exists = true;
             value->value = v;
+            table->entries++;
             break;
         }
         colls++;
@@ -189,8 +203,10 @@ int main(int argc, char *argv[])
 
     srand(time(NULL));
 
-    printf("Generating %d unique numbers...\n\n", table_bound);
-    int *rand_array = create_random_unique_array(table_bound);
+    int table_size = power_of_two_round(table_bound);
+
+    printf("Generating %d unique numbers...\n\n", table_size);
+    int *rand_array = create_random_unique_array(table_size);
 
     for (int i = 0; i < probe_types_length; i++)
     {
@@ -207,7 +223,7 @@ int main(int argc, char *argv[])
                 printf("Time failure");
                 return -1;
             }
-            int col = hash_table_add_all(table, rand_array, table_bound * fill_ratio);
+            int col = hash_table_add_all(table, rand_array, table_size * fill_ratio);
         
             if(clock_gettime(CLOCK_REALTIME, &end))
             {
@@ -218,11 +234,11 @@ int main(int argc, char *argv[])
             printf("Time       : %.3fms\n", (end.tv_sec-start.tv_sec)*1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0);
             printf("Capacity   : %ld\n", table->capacity);  
             printf("Collisions : %d\n", col);
+            printf("Loadfactor : %.0f%%\n", get_loadfactor(table));
+            printf("Entries    : %ld\n",table->entries );
             printf("Freeing table...\n\n");
             hash_table_free(table);
         }
     }
-    
-
     return 0;
 }
