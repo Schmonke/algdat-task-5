@@ -205,6 +205,8 @@ float hash_table_load_factor(hash_table *table)
     return (float)table->entries / (float)table->capacity;
 }
 
+
+
 /**
  * Gets the number of collisions in the hash table.
  */
