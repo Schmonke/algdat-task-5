@@ -44,11 +44,12 @@ void swap(int *a, int *b)
 
 int *create_random_unique_array(size_t length)
 {
+    const int step = INT_MAX / length;
+    const int start = 0;
     int *array = calloc(length, sizeof(int));
-    int mult = (rand() % (length / 2)) + (length / 2);
     for (size_t i = 0; i < length; i++)
     {
-        array[i] = i*mult;
+        array[i] = start + i * step;
     }
     for (size_t i = 0; i < length; i++)
     {
@@ -57,7 +58,7 @@ int *create_random_unique_array(size_t length)
     return array;
 }
 
-size_t gpo2stv(size_t value)
+size_t power_of_two_round(size_t value)
 {
     const int bits = sizeof(size_t) * CHAR_BIT;
     if (value & 1 << (bits - 1))
@@ -94,10 +95,11 @@ size_t probe_linear(int h, int _, int i, size_t m)
 //Uses prime numbers as constants to minimize chance of common denominator.
 size_t probe_quadratic(int h, int _, int i, size_t m)
 {
-    //printf("QUADPROBE: %d\n", i);
-    const unsigned long long c1 = 211;
-    const unsigned long long c2 = 857;
-    return (h + c1 * i + c2 * i * i) % m;
+    const int c = 2;   
+    const int ic = (i / c);
+    size_t result = (h + ic + ic*i);
+    // equivalent to (h + i*0.5 + 0.5*i^2)
+    return (h + ic + ic*i) % m;
 }
 
 // h2 and m must be relative prime
@@ -125,32 +127,14 @@ int hash_table_add(hash_table *table, int v)
         }
         colls++;
     }
-    
-    if (colls == capacity)
-    {
-        //printf("TABLE FULL!\n");
-    }
 
     return colls;
-}
-
-int findpos(int k, int m, int *ht[m], int (*probefunc)(int, int))
-{
-    for (int i = 0; i < m; i++)
-    {
-        int j = probefunc(i, m);
-        if (!ht[j])
-            return -1;
-        if (*ht[j] == k)
-            return j;
-    }
-    return -1; //Does not exist
 }
 
 hash_table *hash_table_create(size_t min_capacity, probe_func *probe)
 {
     hash_table *table = calloc(1, sizeof(hash_table));
-    table->capacity = gpo2stv(min_capacity);
+    table->capacity = power_of_two_round(min_capacity);
     table->values = calloc(table->capacity, sizeof(hash_table_entry));
     table->probe = probe;
     return table;
@@ -212,19 +196,33 @@ int main(int argc, char *argv[])
     {
         for (int j = 0; j < fill_ratios_length; j++)
         {
+            struct timespec start, end;
             float fill_ratio = fill_ratios[j];
             printf("Creating table for %s\n", probe_types[i].name);
             hash_table *table = hash_table_create(table_bound, probe_types[i].probe);
             printf("Filling table (%02.0f%%) ...\n", fill_ratio*100);
-            time_t start = time(NULL);
+
+            if(clock_gettime(CLOCK_REALTIME, &start))
+            {
+                printf("Time failure");
+                return -1;
+            }
             int col = hash_table_add_all(table, rand_array, table_bound * fill_ratio);
-            time_t end = time(NULL);
-            printf("Time       : %lds\n", end - start);
+        
+            if(clock_gettime(CLOCK_REALTIME, &end))
+            {
+                printf("Time failure");
+                return -1;
+            }
+            
+            printf("Time       : %.3fms\n", (end.tv_sec-start.tv_sec)*1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0);
+            printf("Capacity   : %ld\n", table->capacity);  
             printf("Collisions : %d\n", col);
             printf("Freeing table...\n\n");
             hash_table_free(table);
         }
     }
+    
 
     return 0;
 }
