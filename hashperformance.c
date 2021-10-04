@@ -42,17 +42,6 @@ typedef struct
     hash_context hash_ctx;
 } hash_table;
 
-/**
- * Left-rotates the value by the specified amount of bits.
- * This can be seen as a left shift that carries the bits over to the right side.
- * 
- * E.g. lrot(0b010001, 1) would return 0b100010 if ints were 6 bits.
- */
-size_t lrot(size_t value, size_t bits)
-{
-    return (value << bits) | (value >> (sizeof(value) * CHAR_BIT) - bits);
-}
-
 void swap(int *a, int *b)
 {
     int s = *a;
