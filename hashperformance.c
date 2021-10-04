@@ -253,6 +253,13 @@ int main(int argc, char *argv[])
     for (int i = 0; i < probe_types_length; i++)
     {
         printf("Creating tables (load 50%%-100%%) for %s\n", probe_types[i].name);
+        printf(
+            "%*s | %*s | %*s | %*s | %*s\n",
+            column_size, "Load-factor",
+            column_size, "Capacity",
+            column_size, "Entries",
+            column_size, "Collisions",
+            column_size, "Time (ms)");
         for (int j = 0; j < fill_ratios_length; j++)
         {
             struct timespec start, end;
@@ -272,7 +279,7 @@ int main(int argc, char *argv[])
                 return -1;
             }
             printf("%*.0f%% | %*ld | %*ld | %*d | %*.3f\n",
-                   column_size, get_loadfactor(table),
+                   column_size - 1, get_load_factor(table),
                    column_size, table->capacity,
                    column_size, table->entries,
                    column_size, col,
