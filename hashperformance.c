@@ -6,6 +6,9 @@
 #include <time.h>
 #include <math.h>
 
+/**
+ * Struct for the Hash Context
+ */
 typedef struct hash_context
 {
     unsigned long long mult_A;
@@ -13,6 +16,9 @@ typedef struct hash_context
     unsigned int capacity;
 } hash_context;
 
+/**
+ * Struct for the probe context
+ */
 typedef struct probe_context
 {
     hash_context *hash_ctx;
@@ -22,14 +28,21 @@ typedef struct probe_context
     size_t capacity;
 } probe_context;
 
+// A general typedef for every probe function
 typedef size_t probe_func(probe_context *ctx, int i);
 
+/**
+ * Struct for the hash table entries
+ */
 typedef struct
 {
     bool exists;
     int value;
 } hash_table_entry;
 
+/**
+ * Struct for the Hash Table
+ */
 typedef struct
 {
     size_t capacity_pow2exp;
@@ -42,6 +55,9 @@ typedef struct
     hash_context hash_ctx;
 } hash_table;
 
+/**
+ * The swap function as done in the book
+ */
 void swap(int *a, int *b)
 {
     int s = *a;
@@ -49,6 +65,11 @@ void swap(int *a, int *b)
     *b = s;
 }
 
+/**
+ * Create random array
+ * which creates a random array with all unique numbers
+ * 
+ */
 int *create_random_unique_array(size_t length)
 {
     const int step = INT_MAX / length;
@@ -65,6 +86,10 @@ int *create_random_unique_array(size_t length)
     return array;
 }
 
+/**
+ * returns the size of the power of two up to the nearest power of 2
+ * 
+ */
 size_t pow2_round_exponent(size_t value)
 {
     const int bits = sizeof(size_t) * CHAR_BIT;
@@ -82,6 +107,9 @@ size_t pow2_round_exponent(size_t value)
     return 0;
 }
 
+/**
+ * returns the size of the power of two
+ */
 size_t pow2_round(size_t value)
 {
     return (size_t)1 << pow2_round_exponent(value);
@@ -92,7 +120,9 @@ float get_load_factor(hash_table *table)
 {
     return ((float)table->entries / (float)table->capacity) * 100;
 }
-
+/**
+ *
+ */
 void hash_context_init(hash_table *table)
 {
     const double sqrt5 = 2.236067977;
@@ -124,7 +154,7 @@ unsigned int hash2(hash_context ctx, int key)
         shift += ctx.capacity_pow2exp;
     }
 
-    return h | 1;
+    return h | 1; // make the number always odd
 }
 
 size_t probe_linear(probe_context *ctx, int i)
@@ -195,6 +225,10 @@ hash_table *hash_table_create(size_t min_capacity, probe_func *probe)
     return table;
 }
 
+/**
+* Creates 
+*
+*/
 hash_table_entry *hash_table_entry_create(bool b, int val)
 {
     hash_table_entry *entry = malloc(sizeof(hash_table_entry));
@@ -203,12 +237,19 @@ hash_table_entry *hash_table_entry_create(bool b, int val)
     return entry;
 }
 
+/**
+* Frees the hastable allocated memory to avoid memory leaks. 
+*/
 void hash_table_free(hash_table *table)
 {
     free(table->values);
     free(table);
 }
 
+/**
+* Adds all values from an array to the specified hashtable.
+* Returns the amount of collisions occuring while adding values.
+*/
 int hash_table_add_all(hash_table *table, int *values, size_t values_length)
 {
     int col = 0;
