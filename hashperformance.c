@@ -232,6 +232,8 @@ int hash_table_add_all(hash_table *table, int *values, size_t values_length)
 
 int main(int argc, char *argv[])
 {
+    int column_size = 11;
+
     const struct
     {
         const char *name;
@@ -261,13 +263,12 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < probe_types_length; i++)
     {
+        printf("Creating tables (load 50%%-100%%) for %s\n", probe_types[i].name);
         for (int j = 0; j < fill_ratios_length; j++)
         {
             struct timespec start, end;
             float fill_ratio = fill_ratios[j];
-            printf("Creating table for %s\n", probe_types[i].name);
             hash_table *table = hash_table_create(table_bound, probe_types[i].probe);
-            printf("Filling table (%02.0f%%) ...\n", fill_ratio * 100);
 
             if (clock_gettime(CLOCK_REALTIME, &start))
             {
@@ -281,15 +282,16 @@ int main(int argc, char *argv[])
                 printf("Time failure");
                 return -1;
             }
+            printf("%*.0f%% | %*ld | %*ld | %*d | %*.3f\n",
+                   column_size, get_loadfactor(table),
+                   column_size, table->capacity,
+                   column_size, table->entries,
+                   column_size, col,
+                   column_size, (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0);
 
-            printf("Time       : %.3fms\n", (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0);
-            printf("Capacity   : %ld\n", table->capacity);
-            printf("Collisions : %d\n", col);
-            printf("Loadfactor : %.0f%%\n", get_load_factor(table));
-            printf("Entries    : %ld\n", table->entries);
-            printf("Freeing table...\n\n");
             hash_table_free(table);
         }
+        printf("\n");
     }
     return 0;
 }
