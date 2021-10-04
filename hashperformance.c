@@ -4,7 +4,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <time.h>
-#include <math.h>
 
 /**
  * Struct for the Hash Context
@@ -56,7 +55,7 @@ typedef struct
 } hash_table;
 
 /**
- * The swap function as done in the book
+ * Swaps values in two pointer locations.
  */
 void swap(int *a, int *b)
 {
@@ -68,16 +67,19 @@ void swap(int *a, int *b)
 /**
  * Create random array
  * which creates a random array with all unique numbers
- * 
+ * from c lib rand() function and our own way of multiplication
+ * to ensure unique numbers
  */
 int *create_random_unique_array(size_t length)
 {
     const int step = INT_MAX / length;
     const int start = 0;
     int *array = calloc(length, sizeof(int));
+    int acc = 0;
     for (size_t i = 0; i < length; i++)
     {
-        array[i] = start + i * step;
+        acc += ((rand() % step) + 1);
+        array[i] = acc;
     }
     for (size_t i = 0; i < length; i++)
     {
@@ -87,8 +89,8 @@ int *create_random_unique_array(size_t length)
 }
 
 /**
- * returns the size of the power of two up to the nearest power of 2
- * 
+ * Returns the nearest power of 2 exponent than will create a
+ * number larger than specified value.
  */
 size_t pow2_round_exponent(size_t value)
 {
@@ -108,20 +110,24 @@ size_t pow2_round_exponent(size_t value)
 }
 
 /**
- * returns the size of the power of two
+ * Rounds number to the next power of two.
  */
 size_t pow2_round(size_t value)
 {
     return (size_t)1 << pow2_round_exponent(value);
 }
 
-//Calculate load factor
+/**
+* Calculates and returns the loadfactor.
+*/
 float get_load_factor(hash_table *table)
 {
     return ((float)table->entries / (float)table->capacity) * 100;
 }
+
 /**
- *
+ * Determines the capacity and context 
+ * with the equation 0.5*2^x (sqrt(5)-1)
  */
 void hash_context_init(hash_table *table)
 {
@@ -133,28 +139,31 @@ void hash_context_init(hash_table *table)
     };
 }
 
-//Hashfunc 1
+/**
+* First hashing function with a multiplicative implementation
+*/
 unsigned int hash1(hash_context ctx, int key)
 {
-    // multiplicative hash implementation
     return key * ctx.mult_A >> (sizeof(int) * CHAR_BIT - ctx.capacity_pow2exp);
 }
 
-//Hashfunc 2
+/**
+* Second hashing function with a folding hash implementation
+*/
 unsigned int hash2(hash_context ctx, int key)
 {
-    // folding hash implementation
     unsigned int mask = ctx.capacity - 1;
     unsigned int h = 0;
     unsigned int shift = 0;
+    unsigned int capacity_pow2exp = ctx.capacity_pow2exp;
     while (mask != 0)
     {
         h = (mask & key) >> shift;
-        mask <<= ctx.capacity_pow2exp;
-        shift += ctx.capacity_pow2exp;
+        mask <<= capacity_pow2exp;
+        shift += capacity_pow2exp;
     }
 
-    return h | 1; // make the number always odd
+    return h | 1; // make the number always odd at the expense of more collisions
 }
 
 size_t probe_linear(probe_context *ctx, int i)
@@ -162,18 +171,15 @@ size_t probe_linear(probe_context *ctx, int i)
     return (ctx->hash1 + i) % ctx->capacity;
 }
 
-//Uses prime numbers as constants to minimize chance of common denominator.
 size_t probe_quadratic(probe_context *ctx, int i)
 {
-    const int c = 2;
-    const int ic = (i / c);
-    // equivalent to (h + i*0.5 + 0.5*i^2)
-    size_t result = (ctx->hash1 + ic + ic * i);
+    const double c = 0.5;
+    const double ic = i * c;
+    size_t result = (size_t)(ctx->hash1 + ic + ic * i + 1);
     return result % ctx->capacity;
 }
 
-// h2 and m must be relative prime
-size_t probe_doublehash(probe_context *ctx, int i) //int h1, int h2, int i, size_t m)
+size_t probe_doublehash(probe_context *ctx, int i)
 {
     // hash2 cannot be 0 as it will cancel multiplication by i
     if (ctx->hash2 == 0)
@@ -183,6 +189,12 @@ size_t probe_doublehash(probe_context *ctx, int i) //int h1, int h2, int i, size
     return (ctx->hash1 + i * ctx->hash2) % ctx->capacity;
 }
 
+/**
+* Adds a single hastable entry to the specified hashtable.
+* If key already contains a value it tries to probe again
+* to antoher key until it finds a free on. 
+* Returns number of collisions until value got placed. 
+*/
 size_t hash_table_add(hash_table *table, int v)
 {
     const size_t capacity = table->capacity;
@@ -210,10 +222,18 @@ size_t hash_table_add(hash_table *table, int v)
         }
         colls++;
     }
+    if (colls == table->capacity)
+    {
+        printf("Table full, laddies/lassies!\n");
+    }
 
     return colls;
 }
-
+/**
+* Creates a hashtable with a specified capacity and probe function.
+* The hashtable capacity is set to the closest power two, larger than 
+* the specified min_capacity.
+*/
 hash_table *hash_table_create(size_t min_capacity, probe_func *probe)
 {
     hash_table *table = calloc(1, sizeof(hash_table));
@@ -223,18 +243,6 @@ hash_table *hash_table_create(size_t min_capacity, probe_func *probe)
     table->probe = probe;
     hash_context_init(table);
     return table;
-}
-
-/**
-* Creates 
-*
-*/
-hash_table_entry *hash_table_entry_create(bool b, int val)
-{
-    hash_table_entry *entry = malloc(sizeof(hash_table_entry));
-    entry->exists = b;
-    entry->value = val;
-    return entry;
 }
 
 /**
@@ -250,9 +258,9 @@ void hash_table_free(hash_table *table)
 * Adds all values from an array to the specified hashtable.
 * Returns the amount of collisions occuring while adding values.
 */
-int hash_table_add_all(hash_table *table, int *values, size_t values_length)
+size_t hash_table_add_all(hash_table *table, int *values, size_t values_length)
 {
-    int col = 0;
+    size_t col = 0;
     for (size_t i = 0; i < values_length; i++)
     {
         col += hash_table_add(table, values[i]);
@@ -312,14 +320,14 @@ int main(int argc, char *argv[])
                 printf("Time failure");
                 return -1;
             }
-            int col = hash_table_add_all(table, rand_array, table_size * fill_ratio);
+            size_t col = hash_table_add_all(table, rand_array, table_size * fill_ratio);
 
             if (clock_gettime(CLOCK_REALTIME, &end))
             {
                 printf("Time failure");
                 return -1;
             }
-            printf("%*.0f%% | %*ld | %*ld | %*d | %*.3f\n",
+            printf("%*.0f%% | %*lu | %*lu | %*lu | %*.3f\n",
                    column_size - 1, get_load_factor(table),
                    column_size, table->capacity,
                    column_size, table->entries,
