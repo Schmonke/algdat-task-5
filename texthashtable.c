@@ -114,7 +114,7 @@ void hash_table_free(hash_table *table)
     free(table);
 }
 
-hash_table_entry **hash_table_find_bucket(hash_table *table, void* key, size_t key_size)
+hash_table_entry **hash_table_find_bucket(hash_table *table, void *key, size_t key_size)
 {
     unsigned int hashed_key = hash(key, key_size);
     size_t index = hashed_key % table->capacity;
@@ -136,22 +136,17 @@ void hash_table_add(hash_table *table, void *key, size_t key_size, void *value)
     hash_table_entry **entry = hash_table_find_bucket(table, key, key_size);
     hash_table_entry **first_entry = entry;
 
-    // Find first empty entry.
-    while (*entry != NULL)
-    {
-        entry = &(*entry)->next;
-    }
-
-    // Update the first empty entry to the newly created entry.
-    *entry = new_entry;
-    table->entries++;
-
     // Collision occurred.
-    if (*first_entry != new_entry)
+    if (*entry != NULL)
     {
         table->collisions++;
         hash_table_print_collision("!COLLISION! | add: ", *first_entry, new_entry);
     }
+
+    // Update the first entry to the newly created entry and link to next.
+    new_entry->next = *entry;
+    *entry = new_entry;
+    table->entries++;
 }
 
 /**
@@ -183,7 +178,7 @@ bool hash_table_lookup(hash_table *table, void *key, size_t key_size, void **val
     // Print collision
     if (found && first_entry != entry)
     {
-        hash_table_print_collision("!COLLISION! | lookup: ", first_entry, entry);
+        hash_table_print_collision("!COLLISION! | lookup: ", entry, first_entry);
     }
 
     return found;
@@ -204,8 +199,6 @@ float hash_table_load_factor(hash_table *table)
 {
     return (float)table->entries / (float)table->capacity;
 }
-
-
 
 /**
  * Gets the number of collisions in the hash table.
