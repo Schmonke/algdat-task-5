@@ -205,6 +205,8 @@ float hash_table_load_factor(hash_table *table)
     return (float)table->entries / (float)table->capacity;
 }
 
+
+
 /**
  * Gets the number of collisions in the hash table.
  */
@@ -264,6 +266,7 @@ void run_with_buffer(const char *names, size_t size)
     float collisions_per_person = (float)collisions / (float)hash_table_entries(table);
 
     printf("Statistics:\n");
+    printf("   Capacity              : %d\n", HASH_TABLE_CAPACITY);
     printf("   Persons registered    : %ld\n", entries);
     printf("   Collisions            : %ld\n", collisions);
     printf("   Load factor           : %f\n", load_factor);
